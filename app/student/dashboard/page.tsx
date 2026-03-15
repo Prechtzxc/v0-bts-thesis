@@ -224,8 +224,9 @@ export default function StudentDashboard() {
       loadDashboardData()
     }
   }, [user])
-      }
-      
+
+  useEffect(() => {
+    if (user) {
       // Get student application data
       const applications = getApplicationsByStudentId(user.id)
       const documents = getDocumentsByStudentId(user.id)
@@ -313,6 +314,8 @@ export default function StudentDashboard() {
       }
     }
   }, [user])
+  
+  // Continue with other effects or render logic
 
   return (
     <StudentLayout>
