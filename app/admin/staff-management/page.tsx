@@ -581,7 +581,7 @@ export default function StaffManagementPage() {
                             </Badge>
                           ))}
                           {ADMIN_PERMISSIONS[staff.adminRole!]?.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge key="more" variant="outline" className="text-xs">
                               +{ADMIN_PERMISSIONS[staff.adminRole!].length - 3} more
                             </Badge>
                           )}
