@@ -312,6 +312,7 @@ export default function StudentDashboard() {
           setFinancialScheduleStatus("none")
         }
       }
+    }
   }, [user])
   
   // Continue with other effects or render logic
