@@ -1046,6 +1046,46 @@ export async function updateFinancialDistributionSchedule(
   return data || null
 }
 
+export async function getVerificationSchedule(barangay?: string): Promise<VerificationSchedule | null> {
+  try {
+    let query = supabase
+      .from('verification_schedules')
+      .select('*')
+    
+    if (barangay) {
+      query = query.eq('barangay', barangay)
+    }
+    
+    const { data, error } = await query.maybeSingle()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data || null
+  } catch (err) {
+    console.error("Error getting verification schedule:", err)
+    return null
+  }
+}
+
+export async function getFinancialDistributionSchedule(barangay?: string): Promise<FinancialDistributionSchedule | null> {
+  try {
+    let query = supabase
+      .from('financial_distribution_schedules')
+      .select('*')
+    
+    if (barangay) {
+      query = query.eq('barangay', barangay)
+    }
+    
+    const { data, error } = await query.maybeSingle()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data || null
+  } catch (err) {
+    console.error("Error getting financial distribution schedule:", err)
+    return null
+  }
+}
+
 // ==================== APPLICATION UPDATE ALIAS ====================
 
 export async function updateApplication(

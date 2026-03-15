@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuthContext } from "@/contexts/auth-context"
-import StudentLayout from "@/components/student-layout"
+import { useAuth } from "@/contexts/auth-context"
+import { StudentLayout } from "@/components/student-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getApplicationsByStudentId, getFinancialDistributionSchedule, getVerificationSchedule } from "@/lib/storage"
+import { 
+  getApplicationsByStudentId, 
+  getVerificationSchedule, 
+  getFinancialDistributionSchedule 
+} from "@/lib/storage"
 import { AlertCircle, CheckCircle2, Clock } from "lucide-react"
 
 interface DashboardData {
@@ -19,7 +23,7 @@ interface DashboardData {
 
 export default function StudentDashboard() {
   const router = useRouter()
-  const { user } = useAuthContext()
+  const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     applications: [],

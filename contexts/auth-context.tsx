@@ -99,3 +99,6 @@ export function useAuth(): AuthContextType {
   }
   return context
 }
+
+// Backwards compatibility alias
+export const useAuthContext = useAuth
