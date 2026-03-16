@@ -28,58 +28,51 @@ export const metadata: Metadata = {
  * - Zero client-side state or re-render loops
  */
 export default async function StudentDashboardPage() {
-  try {
-    // Verify student auth - will redirect to login if not authenticated
-    const studentId = await verifyStudentAccess()
+  // Verify student auth - will redirect to login if not authenticated
+  const studentId = await verifyStudentAccess()
 
-    return (
-      <main className="flex-1">
-        <div className="space-y-8 p-6 md:p-8">
-          {/* Page Header */}
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Track your scholarship application status and documents
-            </p>
+  return (
+    <main className="flex-1">
+      <div className="space-y-8 p-6 md:p-8">
+        {/* Page Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Track your scholarship application status and documents
+          </p>
+        </div>
+
+        {/* Dashboard Grid - Progressive UI with Suspense Boundaries */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Profile Section - Static data, longer cache */}
+          <div className="md:col-span-2 lg:col-span-1">
+            <StudentProfileSection studentId={studentId} />
           </div>
 
-          {/* Dashboard Grid - Progressive UI with Suspense Boundaries */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Profile Section - Static data, longer cache */}
-            <div className="md:col-span-2 lg:col-span-1">
-              <StudentProfileSection studentId={studentId} />
-            </div>
-
-            {/* Application Tracker - Dynamic data, shorter cache */}
-            <div>
-              <ApplicationTrackerSection studentId={studentId} />
-            </div>
-
-            {/* Scholarship Status - Schedule-based data */}
-            <div>
-              <ScholarshipStatusSection studentId={studentId} />
-            </div>
-
-            {/* Notifications - Real-time data */}
-            <div className="md:col-span-2">
-              <NotificationsSection studentId={studentId} />
-            </div>
+          {/* Application Tracker - Dynamic data, shorter cache */}
+          <div>
+            <ApplicationTrackerSection studentId={studentId} />
           </div>
 
-          {/* Additional Content Sections - Add more as needed */}
-          <div className="border-t pt-8">
-            <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-            <p className="text-sm text-muted-foreground">
-              Activity log and document history would appear here
-            </p>
+          {/* Scholarship Status - Schedule-based data */}
+          <div>
+            <ScholarshipStatusSection studentId={studentId} />
+          </div>
+
+          {/* Notifications - Real-time data */}
+          <div className="md:col-span-2">
+            <NotificationsSection studentId={studentId} />
           </div>
         </div>
-      </main>
-    )
-  } catch (error) {
-    // Auth errors and redirects are handled in auth-server
-    // This catch shouldn't be reached under normal circumstances
-    console.error("[Dashboard] Unexpected error:", error)
-    throw error
-  }
+
+        {/* Additional Content Sections - Add more as needed */}
+        <div className="border-t pt-8">
+          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+          <p className="text-sm text-muted-foreground">
+            Activity log and document history would appear here
+          </p>
+        </div>
+      </div>
+    </main>
+  )
 }
