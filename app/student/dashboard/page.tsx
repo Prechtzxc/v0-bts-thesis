@@ -2,6 +2,7 @@
 // Secure server-side rendering with minimal dependencies
 
 import { Metadata } from "next"
+import Link from "next/link"
 import { verifyStudentAccess } from "@/lib/auth-server"
 import { supabase } from "@/lib/storage"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,22 +20,35 @@ export const metadata: Metadata = {
  * Renders directly without complex widgets or Suspense boundaries
  */
 export default async function StudentDashboardPage() {
-  // Verify student auth - will redirect to login if not authenticated
+  // Verify student auth - returns null if not authenticated (demo mode)
   const studentId = await verifyStudentAccess()
 
-  // Fetch student profile data
-  const { data: profile } = await supabase
-    .from("student_profiles")
-    .select("full_name, email, course, year_level, barangay, is_pwd")
-    .eq("user_id", studentId)
-    .maybeSingle()
+  // For demo: show sample data if no student ID
+  // In production: would redirect to login instead
+  const demoMode = !studentId
 
-  // Fetch applications count
-  const { data: applications, count: appCount } = await supabase
-    .from("applications")
-    .select("id, status", { count: "exact" })
-    .eq("user_id", studentId)
-    .limit(5)
+  // Fetch student profile data (if authenticated)
+  let profile = null
+  let applications = null
+  let appCount = 0
+
+  if (studentId && !demoMode) {
+    const { data } = await supabase
+      .from("student_profiles")
+      .select("full_name, email, course, year_level, barangay, is_pwd")
+      .eq("user_id", studentId)
+      .maybeSingle()
+    profile = data
+
+    // Fetch applications count
+    const { data: apps, count } = await supabase
+      .from("applications")
+      .select("id, status", { count: "exact" })
+      .eq("user_id", studentId)
+      .limit(5)
+    applications = apps
+    appCount = count || 0
+  }
 
   return (
     <main className="flex-1">
@@ -43,9 +57,25 @@ export default async function StudentDashboardPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back. Here's your scholarship application status.
+            {demoMode
+              ? "Welcome to the demo dashboard. Sign in to see your actual data."
+              : "Welcome back. Here's your scholarship application status."}
           </p>
         </div>
+
+        {/* Demo Mode Alert */}
+        {demoMode && (
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              You are viewing the demo dashboard with sample data.{" "}
+              <Link href="/login" className="font-semibold underline hover:no-underline">
+                Sign in
+              </Link>{" "}
+              to access your personal data.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Profile Card */}
         {profile ? (
@@ -75,12 +105,33 @@ export default async function StudentDashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Complete your profile to proceed with your scholarship application.
-            </AlertDescription>
-          </Alert>
+          <Card>
+            <CardHeader>
+              <CardTitle>Student Profile</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Name</p>
+                    <div className="h-6 bg-secondary rounded animate-pulse w-32"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <div className="h-6 bg-secondary rounded animate-pulse w-40"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Course</p>
+                    <div className="h-6 bg-secondary rounded animate-pulse w-32"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Year Level</p>
+                    <div className="h-6 bg-secondary rounded animate-pulse w-24"></div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Applications Summary */}
@@ -107,7 +158,9 @@ export default async function StudentDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No applications yet</p>
+              <p className="text-sm text-muted-foreground">
+                {demoMode ? "No applications in demo data" : "No applications yet"}
+              </p>
             )}
           </CardContent>
         </Card>

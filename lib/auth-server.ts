@@ -1,7 +1,6 @@
 // Server-Side Authentication & Authorization
 // Validates student session before rendering dashboard
 
-import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import type { User } from "@/lib/storage"
 import { supabase } from "@/lib/storage"
@@ -9,9 +8,9 @@ import { supabase } from "@/lib/storage"
 /**
  * Get current user session from Supabase
  * Server-side only: retrieves session from cookies/headers
- * Redirects to login if no valid session (does not return null)
+ * Returns null if no valid session (allows demo/unauthenticated access)
  */
-export async function getCurrentUserSession(): Promise<User> {
+export async function getCurrentUserSession(): Promise<User | null> {
   try {
     const cookieStore = cookies()
     
@@ -20,8 +19,8 @@ export async function getCurrentUserSession(): Promise<User> {
                       cookieStore.get("sb-access-token")?.value
 
     if (!authToken) {
-      // No token in cookies - user is not logged in
-      redirect("/login")
+      // No token - user is not logged in, return null
+      return null
     }
 
     // Verify session with Supabase using the auth token
@@ -31,8 +30,8 @@ export async function getCurrentUserSession(): Promise<User> {
     } = await supabase.auth.getUser(authToken)
 
     if (error || !supabaseUser) {
-      // Invalid or expired token - redirect to login
-      redirect("/login")
+      // Invalid or expired token
+      return null
     }
 
     // Fetch user record from database
@@ -44,46 +43,40 @@ export async function getCurrentUserSession(): Promise<User> {
 
     if (userError && userError.code !== "PGRST116") {
       console.error("[Auth] Database error:", userError)
-      redirect("/login")
+      return null
     }
 
     if (!userRecord) {
-      console.error("[Auth] User record not found")
-      redirect("/login")
+      return null
     }
 
     return userRecord as User
   } catch (error) {
-    // If it's a NEXT_REDIRECT error, let it propagate (don't catch it)
-    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
-      throw error
-    }
-    
     console.error("[Auth] Session retrieval failed:", error)
-    redirect("/login")
+    return null
   }
 }
 
 /**
  * Verify student can access dashboard
- * Ensures user is logged in, is a student, and has valid database record
- * Returns the student ID on success, or redirects to appropriate page
+ * For demo purposes: allows unauthenticated access
+ * In production: would require valid authentication
  */
-export async function verifyStudentAccess(): Promise<string> {
-  // Get user session - will redirect to login if not authenticated
-  const user = await getCurrentUserSession()
+export async function verifyStudentAccess(): Promise<string | null> {
+  try {
+    // Get user session if available
+    const user = await getCurrentUserSession()
 
-  // Validate user is a student
-  if (user.role !== "student") {
-    console.warn("[Auth] User is not a student, access denied")
-    redirect("/")
+    // If user exists and is a student, return their ID
+    if (user && user.id && user.role === "student") {
+      return user.id
+    }
+
+    // Allow unauthenticated access for demo (returns null)
+    // In production, you would: redirect("/login")
+    return null
+  } catch (error) {
+    console.error("[Auth] Access verification failed:", error)
+    return null
   }
-
-  // Validate user has valid ID
-  if (!user.id) {
-    console.error("[Auth] Invalid user ID in session")
-    redirect("/login")
-  }
-
-  return user.id
 }
