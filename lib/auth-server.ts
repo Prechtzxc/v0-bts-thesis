@@ -2,8 +2,59 @@
 // Validates student session before rendering dashboard
 
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import type { User } from "@/lib/storage"
 import { supabase } from "@/lib/storage"
+
+/**
+ * Get current user session from Supabase
+ * Server-side only: retrieves session from cookies/headers
+ */
+export async function getCurrentUserSession(): Promise<User | null> {
+  try {
+    // Get Supabase session from cookies
+    const cookieStore = cookies()
+    const authToken = cookieStore.get("sb-auth-token")?.value
+
+    if (!authToken) {
+      console.log("[Auth] No auth token found in cookies")
+      return null
+    }
+
+    // Verify session with Supabase
+    const {
+      data: { user: supabaseUser },
+      error,
+    } = await supabase.auth.getUser(authToken)
+
+    if (error || !supabaseUser) {
+      console.warn("[Auth] Supabase session invalid:", error?.message)
+      return null
+    }
+
+    // Fetch user record from database
+    const { data: userRecord, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", supabaseUser.id)
+      .maybeSingle()
+
+    if (userError && userError.code !== "PGRST116") {
+      console.error("[Auth] Error fetching user record:", userError)
+      throw userError
+    }
+
+    if (!userRecord) {
+      console.warn("[Auth] User record not found in database")
+      return null
+    }
+
+    return userRecord as User
+  } catch (error) {
+    console.error("[Auth] Error getting user session:", error)
+    return null
+  }
+}
 
 /**
  * Validate student has active session

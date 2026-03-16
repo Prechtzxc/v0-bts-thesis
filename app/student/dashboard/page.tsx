@@ -3,8 +3,7 @@
 // Zero client-side state, zero infinite loops
 
 import { Metadata } from "next"
-import { verifyStudentAccess, handleAuthError } from "@/lib/auth-server"
-import { getCurrentUser } from "@/lib/storage"
+import { verifyStudentAccess, getCurrentUserSession, handleAuthError } from "@/lib/auth-server"
 import {
   StudentProfileSection,
   ApplicationTrackerSection,
@@ -30,8 +29,10 @@ export const metadata: Metadata = {
  */
 export default async function StudentDashboardPage() {
   try {
-    // Validate student auth - runs on server before render
-    const user = getCurrentUser()
+    // Get user session from server - works on SSR without client-side hydration
+    const user = await getCurrentUserSession()
+    
+    // Verify student auth and access permissions
     const studentId = await verifyStudentAccess(user)
 
     return (
