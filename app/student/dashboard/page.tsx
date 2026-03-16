@@ -3,7 +3,7 @@
 // Zero client-side state, zero infinite loops
 
 import { Metadata } from "next"
-import { verifyStudentAccess, getCurrentUserSession, handleAuthError } from "@/lib/auth-server"
+import { verifyStudentAccess } from "@/lib/auth-server"
 import {
   StudentProfileSection,
   ApplicationTrackerSection,
@@ -29,11 +29,8 @@ export const metadata: Metadata = {
  */
 export default async function StudentDashboardPage() {
   try {
-    // Get user session from server - works on SSR without client-side hydration
-    const user = await getCurrentUserSession()
-    
-    // Verify student auth and access permissions
-    const studentId = await verifyStudentAccess(user)
+    // Verify student auth - will redirect to login if not authenticated
+    const studentId = await verifyStudentAccess()
 
     return (
       <main className="flex-1">
@@ -80,10 +77,9 @@ export default async function StudentDashboardPage() {
       </main>
     )
   } catch (error) {
-    // Handle auth errors - redirects to login if needed
-    if (error instanceof Error) {
-      return handleAuthError(error)
-    }
+    // Auth errors and redirects are handled in auth-server
+    // This catch shouldn't be reached under normal circumstances
+    console.error("[Dashboard] Unexpected error:", error)
     throw error
   }
 }

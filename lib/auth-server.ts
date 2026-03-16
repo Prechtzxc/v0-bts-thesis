@@ -9,27 +9,30 @@ import { supabase } from "@/lib/storage"
 /**
  * Get current user session from Supabase
  * Server-side only: retrieves session from cookies/headers
+ * Redirects to login if no valid session (does not return null)
  */
-export async function getCurrentUserSession(): Promise<User | null> {
+export async function getCurrentUserSession(): Promise<User> {
   try {
-    // Get Supabase session from cookies
     const cookieStore = cookies()
-    const authToken = cookieStore.get("sb-auth-token")?.value
+    
+    // Try to get Supabase session token from cookies
+    const authToken = cookieStore.get("sb-auth-token")?.value || 
+                      cookieStore.get("sb-access-token")?.value
 
     if (!authToken) {
-      console.log("[Auth] No auth token found in cookies")
-      return null
+      // No token in cookies - user is not logged in
+      redirect("/login")
     }
 
-    // Verify session with Supabase
+    // Verify session with Supabase using the auth token
     const {
       data: { user: supabaseUser },
       error,
     } = await supabase.auth.getUser(authToken)
 
     if (error || !supabaseUser) {
-      console.warn("[Auth] Supabase session invalid:", error?.message)
-      return null
+      // Invalid or expired token - redirect to login
+      redirect("/login")
     }
 
     // Fetch user record from database
@@ -40,132 +43,47 @@ export async function getCurrentUserSession(): Promise<User | null> {
       .maybeSingle()
 
     if (userError && userError.code !== "PGRST116") {
-      console.error("[Auth] Error fetching user record:", userError)
-      throw userError
+      console.error("[Auth] Database error:", userError)
+      redirect("/login")
     }
 
     if (!userRecord) {
-      console.warn("[Auth] User record not found in database")
-      return null
+      console.error("[Auth] User record not found")
+      redirect("/login")
     }
 
     return userRecord as User
   } catch (error) {
-    console.error("[Auth] Error getting user session:", error)
-    return null
-  }
-}
-
-/**
- * Validate student has active session
- * Throws redirect if not authenticated
- */
-export async function requireStudentAuth(user: User | null): Promise<string> {
-  if (!user) {
-    console.warn("[Auth] No user session found")
-    redirect("/login")
-  }
-
-  if (user.role !== "student") {
-    console.warn("[Auth] User is not a student, redirecting")
-    redirect("/")
-  }
-
-  if (!user.id) {
-    console.warn("[Auth] Invalid user ID")
-    redirect("/login")
-  }
-
-  return user.id
-}
-
-/**
- * Validate student exists in database
- * Ensures RLS policies and permissions are correct
- */
-export async function validateStudentRecord(studentId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", studentId)
-      .eq("role", "student")
-      .maybeSingle()
-
-    if (error && error.code !== "PGRST116") {
-      console.error("[Auth] Database error validating student:", error)
+    // If it's a NEXT_REDIRECT error, let it propagate (don't catch it)
+    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
       throw error
     }
-
-    if (!data) {
-      console.warn("[Auth] Student record not found in database")
-      return false
-    }
-
-    return true
-  } catch (error) {
-    console.error("[Auth] Error validating student record:", error)
-    throw error
+    
+    console.error("[Auth] Session retrieval failed:", error)
+    redirect("/login")
   }
 }
 
 /**
  * Verify student can access dashboard
- * Comprehensive check: session + database + RLS permissions
+ * Ensures user is logged in, is a student, and has valid database record
+ * Returns the student ID on success, or redirects to appropriate page
  */
-export async function verifyStudentAccess(user: User | null): Promise<string> {
-  // 1. Validate session on server
-  const studentId = await requireStudentAuth(user)
+export async function verifyStudentAccess(): Promise<string> {
+  // Get user session - will redirect to login if not authenticated
+  const user = await getCurrentUserSession()
 
-  // 2. Verify student exists and has correct role
-  const isValid = await validateStudentRecord(studentId)
-  if (!isValid) {
-    console.error("[Auth] Student validation failed")
-    redirect("/login")
-  }
-
-  // 3. Attempt to read student profile (tests RLS permissions)
-  try {
-    const { data, error } = await supabase
-      .from("student_profiles")
-      .select("id")
-      .eq("user_id", studentId)
-      .maybeSingle()
-
-    if (error && error.code !== "PGRST116") {
-      console.error("[Auth] RLS permission error:", error)
-      throw error
-    }
-
-    if (!data) {
-      console.warn("[Auth] Student profile not found - may be incomplete registration")
-      // Allow access even if profile incomplete
-    }
-  } catch (error) {
-    console.error("[Auth] Failed to verify RLS permissions:", error)
-    throw error
-  }
-
-  return studentId
-}
-
-/**
- * Handle auth errors gracefully
- * Returns fallback or redirects based on error type
- */
-export function handleAuthError(error: Error): never {
-  const message = error.message.toLowerCase()
-
-  if (message.includes("unauthorized") || message.includes("no session")) {
-    console.error("[Auth] Session expired or invalid")
-    redirect("/login")
-  }
-
-  if (message.includes("forbidden") || message.includes("not a student")) {
-    console.error("[Auth] Access denied")
+  // Validate user is a student
+  if (user.role !== "student") {
+    console.warn("[Auth] User is not a student, access denied")
     redirect("/")
   }
 
-  console.error("[Auth] Unexpected error:", error)
-  throw error
+  // Validate user has valid ID
+  if (!user.id) {
+    console.error("[Auth] Invalid user ID in session")
+    redirect("/login")
+  }
+
+  return user.id
 }
